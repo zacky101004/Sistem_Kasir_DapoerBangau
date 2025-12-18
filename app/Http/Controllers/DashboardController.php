@@ -9,9 +9,10 @@ use App\Models\User;
 
 class DashboardController extends Controller
 {
+    // GET /api/dashboard -> metrik ringkas harian
     public function index()
     {
-        return view('home', [
+        return response()->json([
             "total_menus" => Menu::all()->count(),
             'total_sales' => Transaction::select(Transaction::raw('SUM(total_transaction) as total_sales'))->whereDate('created_at', NOW()->toDateString())->get(),
             'total_income' => Transaction::select(Transaction::raw('SUM(total_payment) as total_income'))->whereDate('created_at', NOW()->toDateString())->get(),

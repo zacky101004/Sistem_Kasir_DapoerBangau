@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use App\Models\Menu;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -10,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class MenuController extends Controller
 {
+    // CRUD menu (admin level_id 3)
     /**
      * Display a listing of the resource.
      *
@@ -19,15 +19,25 @@ class MenuController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 2 || $user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
         }
 
-        return view('menu.index', [
-            'foods' => $menu->where('category','food')->latest()->get(),
-            'drinks' => $menu->where('category', 'drink')->latest()->get(),
-            'dessert' => $menu->where('category', 'dessert')->latest()->get()
+        $decorate = fn ($collection) => $collection->map(function ($item) {
+            $item->picture_url = $item->picture ? url('/media/' . $item->picture) : null;
+            return $item;
+        });
+
+        $fetch = fn (array $categories) => $decorate(
+            $menu->whereIn('category', $categories)->latest()->get()
+        );
+
+        return response()->json([
+            'makanan'       => $fetch(['makanan','food','foods']),
+            'minuman'       => $fetch(['minuman','drink','drinks']),
+            'paket_komplit' => $fetch(['paket_komplit','dessert','desserts','pencuci_mulut']),
         ]);
+
     }
 
     /**
@@ -39,11 +49,13 @@ class MenuController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 2 || $user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
         }
 
-        return view('menu.add');
+        return response()->json([
+            'categories' => ['makanan', 'minuman', 'paket_komplit']
+        ]);
     }
 
     /**
@@ -52,31 +64,34 @@ class MenuController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
+    // POST /api/menus
     public function store(Request $request)
     {
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
+        }
+
         $validateddata = $request->validate([
            'name' => 'required|min:3',
            'modal' => 'required|regex:/([0-9]+[.,]*)+/',
-           'price' => 'required|regex:/([0-9]+[.,]*)+/|gte:modal',
+           'price' => 'required|regex:/([0-9]+[.,]*)+/',
            'category' => 'required',
            'image' => 'required|image|file|max:3048',
            'description' => 'required'
         ]);
 
-
         $validateddata["modal"] = filter_var($request->modal, FILTER_SANITIZE_NUMBER_INT);
         $validateddata["price"] = filter_var($request->price, FILTER_SANITIZE_NUMBER_INT);
-        $validateddata["picture"] = $request->file('image')->store('menu');
+        // simpan ke disk public agar dapat diakses via public/storage
+        $validateddata["picture"] = $request->file('image')->store('menu', 'public');
 
-        Menu::create($validateddata);
-
-        $activity = [
-            'user_id' => Auth::id(),
-            'action' => 'added a menu '.strtolower($request->name)
-        ];
-
-        ActivityLog::create($activity);
-        return redirect('/menu')->with('success','New menu has been added !');
+        $created = Menu::create($validateddata);
+        return response()->json([
+            'message' => 'New menu has been added',
+            'menu' => $created
+        ], 201);
     }
 
     /**
@@ -85,12 +100,17 @@ class MenuController extends Controller
      * @param  \App\Models\Menu  $menu
      * @return \Illuminate\Http\Response
      */
-    public function show(Request $request, Menu $menu)
+    public function show(Menu $menu)
     {
-        $id = $request->id;
-        $menu = $menu->find($id);
-        $menu->diff = $menu->created_at->diffForHumans();;
-        return $menu;
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
+        }
+
+        $menu->diff = $menu->created_at->diffForHumans();
+        $menu->picture_url = $menu->picture ? url('/media/' . $menu->picture) : null;
+        return response()->json($menu);
     }
 
     /**
@@ -103,12 +123,13 @@ class MenuController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 2 || $user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
         }
         
-        return view('menu.edit', [
-            'menu' => $menu
+        return response()->json([
+            'menu' => $menu,
+            'categories' => ['makanan', 'minuman', 'paket_komplit']
         ]);
     }
 
@@ -119,36 +140,40 @@ class MenuController extends Controller
      * @param  \App\Models\Menu  $menu
      * @return \Illuminate\Http\Response
      */
+    // PUT /api/menus/{menu}
     public function update(Request $request, Menu $menu)
     {
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
+        }
+
         $validateddata = $request->validate([
             'name' => 'required|min:3',
             'modal' => 'required|regex:/([0-9]+[.,]*)+/',
-            'price' => 'required|regex:/([0-9]+[.,]*)+/|gte:modal',
+            'price' => 'required|regex:/([0-9]+[.,]*)+/',
             'category' => 'required',
             'picture' => 'image|file|max:3048',
             'description' => 'required'
         ]);
 
-
         $validateddata["modal"] = filter_var($request->modal, FILTER_SANITIZE_NUMBER_INT);
         $validateddata["price"] = filter_var($request->price, FILTER_SANITIZE_NUMBER_INT);
 
         if ($request->file('picture')) {
-            Storage::delete($menu->picture);
-            $validateddata['picture'] = $request->file('picture')->store('menu'); 
+            // hapus file lama di disk public dan simpan yang baru
+            Storage::disk('public')->delete($menu->picture);
+            $validateddata['picture'] = $request->file('picture')->store('menu', 'public'); 
         }
-        
+
         Menu::where('id', $menu->id)
              ->update($validateddata);
 
-        $activity = [
-            'user_id' => Auth::id(),
-            'action' => 'edited a menu '.strtolower($menu->name)
-        ];
-        ActivityLog::create($activity);
-
-        return redirect('/menu')->with('success', 'menu has been updated !');
+        return response()->json([
+            'message' => 'Menu has been updated',
+            'menu' => Menu::find($menu->id)
+        ]);
     }
 
     /**
@@ -159,15 +184,20 @@ class MenuController extends Controller
      */
     public function destroy(Menu $menu)
     {
-        Storage::delete($menu->picture);   
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
+        }
+
+        // Hapus record beserta file pada disk public
+        Storage::disk('public')->delete($menu->picture);   
         $menu->destroy($menu->id);
-        $activity = [
-            'user_id' => Auth::id(),
-            'action' => 'deleted a menu '.strtolower($menu->name)
-        ];
-        ActivityLog::create($activity);
-        return redirect('/menu');
+        return response()->json([
+            'message' => 'Menu removed'
+        ]);
     }
 
 }
+
 

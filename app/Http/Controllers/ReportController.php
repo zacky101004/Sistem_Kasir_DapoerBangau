@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 
 class ReportController extends Controller
 {
+    // GET /api/reports -> laporan transaksi (filter per role)
     public function index(Request $request)
     {
         $user = Auth::user();
@@ -90,6 +91,8 @@ class ReportController extends Controller
                 }
             }
         }
-        return view('transaction.report', ['data' => $data]);
+        return response()->json([
+            'data' => $data
+        ]);
     }
 }

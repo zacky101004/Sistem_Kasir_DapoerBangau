@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
+    // Auth session-based login/logout for API endpoints
     public function index() 
     {
-        return view('login.index');
+        return response()->json([
+            'user' => Auth::user()
+        ]);
     }
 
+    // POST /api/login
     public function authenticate(Request $request)
     {
         $credentials = $request->validate([
@@ -21,37 +24,44 @@ class LoginController extends Controller
         ]);
 
         if (Auth::attempt($credentials)) {
-            $id = Auth::id();
-            $activity = [
-                'user_id' => $id,
-                'action' => 'logged in'
-            ];
-            ActivityLog::create($activity);
-            
             $request->session()->regenerate();
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Login berhasil',
+                    'user' => Auth::user(),
+                    'halaman' => 'dashboard'
+                ]);
+            }
 
             return redirect()->intended('/');
         }
 
-        return back()->with('LoginError', 'Login Failed');
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Login gagal, periksa username atau password'
+            ], 401);
+        }
+
+        return back()->with('LoginError', 'Login gagal, periksa username atau password');
 
 
     }
 
+    // POST /api/logout
     public function logout(Request $request) 
     {
-        $id = Auth::id();
-        $activity = [
-            'user_id' => $id,
-            'action' => 'logged out'
-        ];
-        ActivityLog::create($activity);
-
         Auth::logout();
 
         $request->session()->invalidate();
 
         $request->session()->regenerateToken();
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Berhasil keluar'
+            ]);
+        }
 
         return redirect('/login');
     }

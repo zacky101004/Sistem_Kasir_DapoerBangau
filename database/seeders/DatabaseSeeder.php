@@ -42,27 +42,21 @@ class DatabaseSeeder extends Seeder
             'level_id' => '1',
             'name' => 'Aldy Ramadhan',
             'username' => 'manager',
-            'password' => bcrypt('asd321'),
-            'email' => 'aldy89@gmail.com', 
-            'picture' => 'avatars-'.mt_rand(1,8).'.png'
+            'password' => bcrypt('asd321')
         ]);
 
         User::create([
             'level_id' => '2',
             'name' => 'Muhammad Galang',
             'username' => 'cashier',
-            'password' => bcrypt('asd321'),
-            'email' => 'galang110@gmail.com', 
-            'picture' => 'avatars-'.mt_rand(1,8).'.png'
+            'password' => bcrypt('asd321')
         ]);
 
         User::create([
             'level_id' => '3',
             'name' => 'Sophia',
             'username' => 'admin',
-            'password' => bcrypt('asd321'),
-            'email' => 'sophia32@gmail.com',
-            'picture' => 'avatars-'.mt_rand(1,8).'.png'
+            'password' => bcrypt('asd321')
         ]);
 
         $menuData = [
@@ -140,23 +134,13 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
-        $imageUrls = [
-            'https://i.ibb.co/cydkjWp/03r-Iwzuawxd-Zc-Hc-J6skw-Mcec-Y5i-GUOj-MPUgq-I1f-W.png',
-            'https://i.ibb.co/p1bSnsZ/4dj3-FQt-Rpa-Ovt-VUXI2g8g-RHz-LRUe-Vv-VHnx7-Wif-El.png',
-            'https://i.ibb.co/X8WNZzq/NPh-Witdo-KL7fe8-R300-NVQVhr1t-P2-Og98lo-M0-Wi6-L.png',
-            'https://i.ibb.co/nncpZYB/q-Tuju-N5ywi-Vv4q-CKm-ZIysyc8b8x5-PEFZnv53-SXAG.png',
-            'https://i.ibb.co/pbggPdn/Nwd-U0-QMw-VVWs-Xy-CDH9-Tmx7-VMvwh-Xm5w-O8-YAv-EMUV.png',
-            'https://i.ibb.co/zmLzKqm/s-Xmqbk-EQrt-Uq-Vh-Azd-RGG0mf-Jq-UPTHQ0p-NEJd-Hbe6.png',
-            'https://i.ibb.co/cNgzFrL/ue-DSl-Zbl-Rg-Hw-Uqn-Cu-VC0-VT7-J9-IMt-Yc-VKkudrj-ZXr.png',
-            'https://i.ibb.co/9sMspx4/q-RXfcw9jk-Iz-Fu-K3-UF4-ZNIABpv2-PXw-YKq-Jcjz2-G3r-2.png',
-            'https://i.ibb.co/c6HvFFL/8-N4-Dc-RN4u-Ofvv-EOLKGt4a-XFl-Oj-Fi-WFj8-SOn-Ld-GKp.png'
-        ];
+        $placeholderImage = file_get_contents(public_path('images/placeholder-menu.png'));
 
         foreach ($menuData as $key => $menu) {
             $filename = Str::random(40) . '.png'; 
 
-            $imageData = file_get_contents($imageUrls[$key]); 
-            Storage::put('menu/' . $filename, $imageData); 
+            $imageData = $placeholderImage; 
+            Storage::disk('public')->put('menu/' . $filename, $imageData); 
 
             $menu['picture'] = 'menu/' . $filename; 
 

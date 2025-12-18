@@ -8,9 +8,11 @@ use App\Models\TransactionDetail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class TransactionController extends Controller
 {
+    // Transaksi: list, buat order, lihat detail, bayar
     /**
      * Display a listing of the resource.
      *
@@ -20,46 +22,29 @@ class TransactionController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || !in_array($user->level_id, [2, 3])) {
+            abort(403);
         }
 
-        if ($user->level_id == 1) {
-            $all = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->where('status', 'paid')
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-            $today = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->where('status', 'paid')
-                                ->whereDate('created_at',Carbon::now())
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-            $thisMonth = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->where('status', 'paid')
-                                ->whereMonth('created_at',Carbon::now()->month)
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-        } else {
-            $all = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-            $today = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->whereDate('created_at',Carbon::now())
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-            $thisMonth = Transaction::with(['transaction_details', 'transaction_details.menu'])
-                                ->whereMonth('created_at',Carbon::now()->month)
-                                ->latest()
-                                ->filter(request(['year', 'month']))
-                                ->paginate(5);
-        }
+        // paginate dengan page size besar agar menampilkan semua entri tanpa memotong
+        $pageSize = 1000;
+
+        $all = Transaction::with(['transaction_details', 'transaction_details.menu'])
+                            ->latest()
+                            ->filter(request(['year', 'month']))
+                            ->paginate($pageSize);
+        $today = Transaction::with(['transaction_details', 'transaction_details.menu'])
+                            ->whereDate('created_at',Carbon::now())
+                            ->latest()
+                            ->filter(request(['year', 'month']))
+                            ->paginate($pageSize);
+        $thisMonth = Transaction::with(['transaction_details', 'transaction_details.menu'])
+                            ->whereMonth('created_at',Carbon::now()->month)
+                            ->latest()
+                            ->filter(request(['year', 'month']))
+                            ->paginate($pageSize);
     
-        return view('transaction.index', [
+        return response()->json([
             'all' => $all, 
             'today' => $today,
             'thisMonth' => $thisMonth
@@ -71,18 +56,24 @@ class TransactionController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
+    // GET /api/transactions/create -> data menu + meja unpaid
     public function create(Menu $menu)
     {
         $user = Auth::user();
 
-        if ($user->level_id === 1 || $user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 2) {
+            abort(403);
         }
+
+        $decorate = fn ($collection) => $collection->map(function ($item) {
+            $item->picture_url = $item->picture ? url('/media/' . $item->picture) : null;
+            return $item;
+        });
         
-        return view('transaction.create', [
-            'foods' => $menu->where('category','food')->latest()->get(),
-            'drinks' => $menu->where('category', 'drink')->latest()->get(),
-            'desserts' => $menu->where('category', 'dessert')->latest()->get(),
+        return response()->json([
+            'makanan' => $decorate($menu->whereIn('category',["makanan","food","foods"])->latest()->get()),
+            'minuman' => $decorate($menu->whereIn('category', ["minuman", "drink", "drinks"])->latest()->get()),
+            'paket_komplit' => $decorate($menu->whereIn('category', ["paket_komplit", "dessert", "desserts", "pencuci_mulut"])->latest()->get()),
             'tables' => Transaction::select('no_table')->where('status','unpaid')->get()
         ]);
     }
@@ -93,8 +84,15 @@ class TransactionController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
+    // POST /api/transactions
     public function store(Request $request)
     {
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 2) {
+            abort(403);
+        }
+
         $transaction = $request->validate([
             'no_table' => 'required',
             'total_transaction' => 'required' 
@@ -121,7 +119,10 @@ class TransactionController extends Controller
             TransactionDetail::create($transactionDetail);
         };
 
-        return redirect('/transaction')->with('success', 'New transaction successfully created !');
+        return response()->json([
+            'message' => 'New transaction successfully created',
+            'transaction_id' => $id
+        ], 201);
     }
 
     /**
@@ -130,15 +131,16 @@ class TransactionController extends Controller
      * @param  \App\Models\Transaction  $transaction
      * @return \Illuminate\Http\Response
      */
+    // GET /api/transactions/{transaction}
     public function show(Transaction $transaction)
     {
         $user = Auth::user();
 
-        if ($user->level_id === 1 || $user->level_id === 3) {
-            return redirect()->back();
+        if (!$user || !in_array($user->level_id, [2, 3])) {
+            abort(403);
         }
         
-        return view('transaction.show', [
+        return response()->json([
             'data' => $transaction->with(['transaction_details','transaction_details.menu','user'])->where('id', '=', $transaction->id)->get()
         ]);
     }
@@ -161,8 +163,14 @@ class TransactionController extends Controller
      * @param  \App\Models\Transaction  $transaction
      * @return \Illuminate\Http\Response
      */
+    // PUT /api/transactions/{transaction} -> bayar transaksi
     public function update(Request $request, Transaction $transaction)
     {
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 2) {
+            abort(403);
+        }
         
         $validateddata = $request->validate([
             'total_transaction' => 'required|numeric',
@@ -175,7 +183,10 @@ class TransactionController extends Controller
         Transaction::where('id', $transaction->id)
                     ->update($validateddata);
         
-        return redirect('/transaction')->with('success', 'transaction successfully !');
+        return response()->json([
+            'message' => 'Transaction updated',
+            'transaction' => Transaction::find($transaction->id)
+        ]);
         
     }
 
@@ -192,3 +203,6 @@ class TransactionController extends Controller
 
    
 }
+
+
+

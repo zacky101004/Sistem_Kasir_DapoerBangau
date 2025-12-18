@@ -3,10 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
@@ -21,11 +19,11 @@ class UserController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 1 || $user->level_id === 2) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
         }
 
-        return view('user.index', [
+        return response()->json([
             'users' => User::with('level')->get(),
         ]);
     }
@@ -39,11 +37,13 @@ class UserController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->level_id === 1 || $user->level_id === 2) {
-            return redirect()->back();
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
         }
 
-        return view('user.create');
+        return response()->json([
+            'levels' => [1,2,3]
+        ]);
     }
 
     /**
@@ -54,6 +54,12 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
+        $user = Auth::user();
+
+        if (!$user || $user->level_id !== 3) {
+            abort(403);
+        }
+
         Validator::extend('without_spaces', function ($attr, $value) {
             return preg_match('/^\S*$/u', $value);
         });
@@ -62,22 +68,17 @@ class UserController extends Controller
             'name' => 'required|min:3',
             'username' => 'required|min:3|unique:users|without_spaces',
             'password' => 'required|min:5',
-            'email' => 'required|regex:/(.+)@(.+)\.(.+)/i'
         ], [
             'without_spaces' => 'The username cannot contain space'
         ]);
         $validateddata['password'] = bcrypt($request->password);
-        $validateddata['picture'] = 'avatars-' . mt_rand(1, 8) . '.png';
 
         User::create($validateddata);
 
-        $activity = [
-            'user_id' => Auth::id(),
-            'action' => 'added a new employee -' . strtolower($request->username)
-        ];
-        ActivityLog::create($activity);
-
-        return redirect('/user')->with('success', 'New employee has been added !');
+        return response()->json([
+            'message' => 'New employee has been added',
+            'user' => User::where('username', $request->username)->first()
+        ], 201);
     }
 
     /**
@@ -88,11 +89,13 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        if (Auth::user()->level_id !== $user->level_id) {
-            return redirect()->back();
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
         }
 
-        return view('account.index', [
+        return response()->json([
             'user' => $user
         ]);
 
@@ -106,24 +109,26 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-        if (Auth::user()->level_id === 1 || Auth::user()->level_id === 2) {
-            return redirect()->back();
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
         }
 
-        return view('user.edit', [
-            'users' => $user
+        return response()->json([
+            'user' => $user
         ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\User  $user
-     * @return \Illuminate\Http\Response
-     */
+    // PUT /api/users/{user}
     public function update(Request $request, User $user)
     {
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
+        }
+
         Validator::extend('without_spaces', function ($attr, $value) {
             return preg_match('/^\S*$/u', $value);
         });
@@ -132,46 +137,45 @@ class UserController extends Controller
             'level_id' => 'required',
             'name' => 'required|min:3',
             'username' => 'required|min:3|unique:users,username,' . $user->id . '|without_spaces|',
-            'email' => 'required|regex:/(.+)@(.+)\.(.+)/i'
         ], [
             'without_spaces' => 'The username cannot contain space'
         ]);
 
         User::where('id', $user->id)
             ->update($validateddata);
-
-        $activity = [
-            'user_id' => Auth::id(),
-            'action' => 'edited the employee -' . strtolower($request->username)
-        ];
-        ActivityLog::create($activity);
-        return redirect('/user')->with('success', 'employee has been updated !');
+        return response()->json([
+            'message' => 'Employee has been updated',
+            'user' => User::find($user->id)
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\User  $user
-     * @return \Illuminate\Http\Response
-     */
+    // DELETE /api/users/{user}
     public function destroy(Request $request, User $user)
     {
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
+        }
+
         $user_id = $request->users;
         for ($i = 0; $i < count($user_id); $i++) {
-            $username = $user->find($user_id[$i])->username;
-            $activity = [
-                'user_id' => Auth::id(),
-                'action' => 'deleted the employee -' . strtolower($username)
-            ];
-            Storage::delete($user_id[$i]);
             $user->destroy($user_id[$i]);
-            ActivityLog::create($activity);
         };
-        return redirect('/user');
+        return response()->json([
+            'message' => 'Selected employees removed'
+        ]);
     }
 
+    // POST /api/users/{user}/profile
     public function updateProfile(Request $request, User $user)
     {
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
+        }
+
         Validator::extend('without_spaces', function ($attr, $value) {
             return preg_match('/^\S*$/u', $value);
         });
@@ -179,25 +183,37 @@ class UserController extends Controller
         $validateddata = $request->validate([
             'name' => 'required|min:3',
             'username' => 'required|min:3|unique:users,username,' . $user->id . '|without_spaces|',
-            'email' => 'required|regex:/(.+)@(.+)\.(.+)/i',
-            'picture' => 'image|file|max:2048'
         ], [
             'without_spaces' => 'The username cannot contain space'
         ]);
 
-        if ($request->file('picture')) {
-            if (strpos($user->picture, 'avatars') === false) {
-                $old_pict = 'profile/' . $user->picture;
-                Storage::delete($old_pict);
-            }
-            $file = $request->file('picture');
-            $fileName = explode('/', $file->store('profile'))[1];
-            $validateddata['picture'] = $fileName;
-        }
-
         User::where('id', $user->id)
             ->update($validateddata);
 
-        return redirect('/user/' . $user->id);
+        return response()->json([
+            'message' => 'Profile updated',
+            'user' => User::find($user->id)
+        ]);
+    }
+
+    public function resetPassword(Request $request, User $user)
+    {
+        $authUser = Auth::user();
+
+        if (!$authUser || $authUser->level_id !== 3) {
+            abort(403);
+        }
+
+        $request->validate([
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        $user->update([
+            'password' => bcrypt($request->password),
+        ]);
+
+        return response()->json([
+            'message' => 'Password berhasil diubah.'
+        ]);
     }
 }

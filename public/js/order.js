@@ -13,13 +13,12 @@ const clear_order = document.querySelector('.clear-order');
 let arr = []; 
 
 let total_price = 0; 
-let fixed_price = 0;
 const subtotal = document.querySelector('.cart-payment .sub-total');
 const total_transaction = document.querySelector('.cart-payment .total-transaction ');
 const input_transaction = document.querySelector('.section-transaction input');
 const menu_id = document.getElementById('menu_id');
 
-const table = document.querySelectorAll('.tab-container');
+const tableButtons = document.querySelectorAll('.table-btn');
 let table_selected = [];
 let table_click = [];
 
@@ -65,10 +64,9 @@ Addtocart.forEach((e, i) => {
                 </div>`
         }
         total_price += parseInt(priceProduct[i].innerText.split(".").join(''));
-        fixed_price = total_price + (total_price * 10 / 100);
         subtotal.innerText = `Rp ${formatRupiah(total_price.toString())}`;
-        total_transaction.innerText = `Rp ${formatRupiah(fixed_price.toString())}`;
-        input_transaction.value = fixed_price;
+        total_transaction.innerText = `Rp ${formatRupiah(total_price.toString())}`;
+        input_transaction.value = total_price;
         menu_id.value = JSON.stringify(list_Product);
     })
 });
@@ -85,7 +83,6 @@ Removetocart.forEach((e, i) => {
                 menu_order.removeChild(element);
                 arr.splice(arr.indexOf(i),1);
                 total_price -= parseInt(priceProduct[i].innerText.split(".").join(''));
-                fixed_price = total_price + (total_price * 10) / 100;
                 list_Product.splice(list_Product.indexOf(list_Product.find((product) => product.menu_id == idProduct)), 1);
             }else {
                 qty = valueQty - 1;
@@ -102,7 +99,6 @@ Removetocart.forEach((e, i) => {
                         <i onclick="add(this)" class="btn-add-inner fa-solid fa-plus" style="color: #fff;"></i>
                     </div>`
                 total_price -= parseInt(priceProduct[i].innerText.split(".").join(''));
-                fixed_price = total_price + (total_price * 10) / 100;
                 list_Product.find(product => product.menu_id == idProduct).qty = qty;
                 list_Product.find(product => product.menu_id == idProduct).price -= parseInt(priceProduct[i].innerText.split(".").join(''));
             }
@@ -110,106 +106,33 @@ Removetocart.forEach((e, i) => {
             menu_id.value = JSON.stringify(list_Product);
         }
         subtotal.innerText = `Rp ${formatRupiah(total_price.toString())}`;
-        total_transaction.innerText = `Rp ${formatRupiah(fixed_price.toString())}`;
-        if (fixed_price === 0) {
+        total_transaction.innerText = `Rp ${formatRupiah(total_price.toString())}`;
+        if (total_price === 0) {
             input_transaction.removeAttribute('value');
         } else {
-            input_transaction.value = fixed_price;
+            input_transaction.value = total_price;
         }
     })
 })
 
-let list_table = Array.from(table);
+let list_table = Array.from(tableButtons);
 for (let i = 0; i < tables.length; i++) {
-    let type_tables = list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).getAttribute('class');
-    list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).setAttribute('data-table', 'sold');
-    list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(1).style.color = "#fff";
-    if (type_tables == "table-A") {
-        list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).src = "../images/table/sold/meja4-sold.png";
-    } else if(type_tables == "table-B") {
-        list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).src = "../images/table/sold/meja5-sold.png";
-    } else if(type_tables == "table-C1") {
-        list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).src = "../images/table/sold/meja1-sold.png";
-    } else if(type_tables == "table-C2") {
-        list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).src = "../images/table/sold/mejabottom-sold.png";
-    } else if(type_tables == "table-D") {
-        list_table.find(b => b.children.item(0).getAttribute("data-number") == tables[i].no_table).children.item(0).src = "../images/table/sold/meja3-sold.png";
-    } 
+    let btn = list_table.find(b => b.getAttribute("data-number") == tables[i].no_table);
+    if (btn) {
+        btn.classList.add('sold');
+        btn.setAttribute('data-status', 'sold');
+    }
 }
 
-table.forEach((e, i) => {
-    e.addEventListener("click", function () {
-        let type = e.children.item(0).getAttribute("class");
-        let tbl_img = table[i].children.item(0);
-        let tbl_num = tbl_img.getAttribute("data-number");
-        let ifselected = tbl_img.getAttribute("data-table");
-        let text = e.children.item(1);
-       
-        if (type == "table-A") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja4.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else if(ifselected == "not-selected") {
-                tbl_img.src = "../images/table/selected/meja4-selected.png";
-                tbl_img.setAttribute("data-table", "selected");
-                text.style.color = "#fff";
-            } else {
-                return false;
-            }
-        } else if (type == "table-B") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja5.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else if(ifselected == "not-selected") {
-                tbl_img.src = "../images/table/selected/meja5-selected.png";
-                tbl_img.setAttribute("data-table", "selected");
-                text.style.color = "#fff";
-            } else {
-                return false;
-            }
-        } else if (type == "table-C1") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja0.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else if(ifselected == "not-selected") {
-                tbl_img.src = "../images/table/selected/meja1.png";
-                tbl_img.setAttribute("data-table", "selected");
-                text.style.color = "#fff";
-            } else {
-                return false;
-            }
-        } else if (type == "table-C2") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/mejabottom.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else if(ifselected == "not-selected") {
-                tbl_img.src = "../images/table/selected/mejabottom-selected.png";
-                tbl_img.setAttribute("data-table", "selected");
-                text.style.color = "#fff";
-            } else {
-                return false;
-            }
-        } else if (type == "table-D") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja3.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else if(ifselected == "not-selected") {
-                tbl_img.src = "../images/table/selected/meja3-selected.png";
-                tbl_img.setAttribute("data-table", "selected");
-                text.style.color = "#fff";
-            } else {
-                return false
-            }
-        }
-
-        if (table_selected.includes(tbl_num)) {
-            table_selected.splice(table_selected.indexOf(`${tbl_num}`), 1);
+tableButtons.forEach((btn) => {
+    btn.addEventListener("click", function () {
+        if (btn.getAttribute('data-status') === 'sold') return;
+        let tbl_num = btn.getAttribute("data-number");
+        if (btn.classList.contains('selected')) {
+            btn.classList.remove('selected');
+            table_selected.splice(table_selected.indexOf(tbl_num), 1);
         } else {
+            btn.classList.add('selected');
             table_selected.push(tbl_num);
         }
         document.getElementById("table_selected").value = table_selected;
@@ -233,53 +156,11 @@ function deleteOrder() {
     document.getElementById("table_selected").value = ' ';
     document.querySelector(".tables-selected").innerText = `Table `;
     table_selected.removeAttribute('value');
-    table.forEach((e, i) => {
-        let type = e.children.item(0).getAttribute("class");
-        let tbl_img = table[i].children.item(0);
-        let text = e.children.item(1);
-        let ifselected = tbl_img.getAttribute("data-table");
-        if (type == "table-A") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja4.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            }else {
-                return false;
-            }
-        } else if (type == "table-B") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja5.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            }else {
-                return false;
-            }
-        } else if (type == "table-C1") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja0.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            }else {
-                return false;
-            }
-        } else if (type == "table-C2") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/mejabottom.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            } else {
-                return false;
-            }
-        } else if (type == "table-D") {
-            if (ifselected == "selected") {
-                tbl_img.src = "../images/table/meja3.png";
-                tbl_img.setAttribute("data-table", "not-selected");
-                text.style.color = "#000";
-            }else {
-                return false;
-            }
+    tableButtons.forEach((btn) => {
+        if (!btn.classList.contains('sold')) {
+            btn.classList.remove('selected');
         }
-    })
+    });
 }
 
 function add(e) {
@@ -296,10 +177,9 @@ function add(e) {
     qty_numbers_outers.innerText = number_count;
     
     total_price += price_outers;
-    fixed_price = total_price + (total_price * 10 / 100);
     subtotal.innerText = `Rp ${formatRupiah(total_price.toString())}`;
-    total_transaction.innerText = `Rp ${formatRupiah(fixed_price.toString())}`;
-    input_transaction.value = fixed_price;
+    total_transaction.innerText = `Rp ${formatRupiah(total_price.toString())}`;
+    input_transaction.value = total_price;
     menu_id.value = JSON.stringify(list_Product);
 
 }
@@ -316,22 +196,20 @@ function remove(e) {
         menu_order.removeChild(e.parentElement.parentElement);
         qty_numbers_outers.innerText = number_count;
         total_price -= price_outers;
-        fixed_price = total_price + (total_price * 10 / 100);
     } else {
         qty_numbers_inner.innerText = number_count;
         qty_numbers_outers.innerText = number_count;
         list_Product.find(product => product.menu_id == list_menu_id).qty = number_count;
         list_Product.find(product => product.menu_id == list_menu_id).price = price_outers * number_count;
         total_price -= price_outers;
-        fixed_price = total_price + (total_price * 10 / 100);
     }    
 
     subtotal.innerText = `Rp ${formatRupiah(total_price.toString())}`;
-    total_transaction.innerText = `Rp ${formatRupiah(fixed_price.toString())}`;
+    total_transaction.innerText = `Rp ${formatRupiah(total_price.toString())}`;
     menu_id.value = JSON.stringify(list_Product);
-    if (fixed_price === 0) {
+    if (total_price === 0) {
         input_transaction.removeAttribute('value');
     } else {
-        input_transaction.value = fixed_price;
+        input_transaction.value = total_price;
     }
 }
