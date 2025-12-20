@@ -23,6 +23,8 @@ const MenuListPage = () => {
     }, []);
 
     const remove = async (id) => {
+        const ok = window.confirm('Hapus menu ini?');
+        if (!ok) return;
         await axios.delete(`/menus/${id}`);
         load();
     };

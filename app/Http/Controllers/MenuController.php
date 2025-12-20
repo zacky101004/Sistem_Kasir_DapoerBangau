@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Storage;
 
 class MenuController extends Controller
 {
-    // CRUD menu (admin level_id 3)
+    // CRUD menu
     /**
      * Display a listing of the resource.
      *
